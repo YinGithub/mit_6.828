@@ -1,0 +1,21 @@
+1. uintptr_t 
+2.
+    Entry	Base Virtual Address	Points to (logically):
+    1023	0xffc00000	            Page table for top 4MB of phys memory
+    1022	0xff800000              Page table 
+    .	
+    .	
+    .	
+    2	    0x00800000	?
+    1	    0x00400000	?
+    0	    0x00000000	[see next question]
+
+3. All the Kernel's Data was put above KERNBASE,where the address permission was set kernel RW, user NONE.
+4. This operating system can support 4 Gig physical memory at most,for the page dir has 1024 enrties,
+    each of it can point to a page table ,which has 1024 enrties too.As the page size is set as 4K,
+    the total amount of physical memory is 4 Gig.
+5. 4100k,including 1024 page tables,and 1 page directory.
+6. After the instruction "jmp relocated",the system start running at an EIP above KERNBASE.for the page 
+    system also map virtual address 0-4M,to physic memory 0-4M. After paging turned on,the next instructions
+    helps to switch above KERNBASE,are still work in low memory.
+
