@@ -161,10 +161,12 @@ mem_init(void)
 	{
 		memset((void *)(pages+n),0x00,sizeof(struct PageInfo));
 	}
-	
+	 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	envs = boot_alloc(NENV*sizeof(struct Env ));
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -207,7 +209,12 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-
+	n = ROUNDUP(NENV*sizeof(struct Env), PGSIZE);
+	for(i = 0;i < n;i += PGSIZE)
+	{
+		p_te = pgdir_walk(kern_pgdir,(void *)(UENVS + i),true);
+		*p_te = (PADDR(envs)+i)|PTE_U | PTE_P;
+	}
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -420,7 +427,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		if(_ph == NULL)
 			return NULL;
 		(_ph->pp_ref)++;
-		pgdir[PDX(va)] = page2pa(_ph)|PTE_W|PTE_P;
+		pgdir[PDX(va)] = page2pa(_ph)|PTE_W|PTE_U|PTE_P;
 		
 	}
 	d_entry = (pte_t *) KADDR(PTE_ADDR(pgdir[PDX(va)]));
@@ -1029,4 +1036,3 @@ check_page_installed_pgdir(void)
 
 	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
-

@@ -9,6 +9,25 @@
 #include <kern/env.h>
 #include <kern/syscall.h>
 
+void trap_divide();
+void trap_debug();
+void trap_nmi();
+void trap_brkpt();
+void trap_oflow();
+void trap_bound();
+void trap_illop();
+void trap_device();
+void trap_dblflt();
+void trap_tss();
+void trap_segnp();
+void trap_stack();
+void trap_gpflt();
+void trap_pgflt();
+void trap_fperr();
+void trap_align();
+void trap_mchk();
+void trap_simderr();
+
 static struct Taskstate ts;
 
 /* For debugging, so print_trapframe can distinguish between printing
@@ -58,14 +77,31 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
-
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
-
+	uint32_t  code_base;
+	code_base = (gdt[1]).sd_base_15_0 + (((gdt[1]).sd_base_23_16)<<16) + (((gdt[1]).sd_base_31_24)<<24) ;
 	// LAB 3: Your code here.
-
+	SETGATE(idt[0],1,code_base,&trap_divide,0);
+	SETGATE(idt[1],1,code_base,&trap_debug,3);
+	SETGATE(idt[2],1,code_base,&trap_nmi,3);
+	SETGATE(idt[3],1,code_base,&trap_brkpt  ,3);
+	SETGATE(idt[4],1,code_base,&trap_oflow  ,3);
+	SETGATE(idt[5],1,code_base,&trap_bound,3);
+	SETGATE(idt[6],1,code_base,&trap_illop  ,3);
+	SETGATE(idt[7],1,code_base,&trap_device,3);
+	SETGATE(idt[8],1,code_base,&trap_dblflt,3);
+	SETGATE(idt[10],1,code_base,&trap_tss,3);
+	SETGATE(idt[11],1,code_base,&trap_segnp,3);
+	SETGATE(idt[12],1,code_base,&trap_stack,3);
+	SETGATE(idt[13],1,code_base,&trap_gpflt,3);
+	SETGATE(idt[14],1,code_base,&trap_pgflt,3);
+	SETGATE(idt[16],1,code_base,&trap_fperr,3);
+	SETGATE(idt[17],1,code_base,&trap_align,3);
+	SETGATE(idt[18],1,code_base,&trap_mchk,3);
+	SETGATE(idt[19],1,code_base,&trap_simderr,3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
