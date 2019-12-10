@@ -153,26 +153,6 @@ env_init_percpu(void)
 	lldt(0);
 }
 
-static void
-boot_map_region_s(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
-{
-	// Fill this function in 
-	pte_t * _tabel_entry;
-	uintptr_t _vaddr;
-	physaddr_t _paddr;
-	int i ;
-	for(i = 0; i < size;i = i+PGSIZE)
-	{
-		_vaddr = va + i;
-		_paddr = pa + i;
-		_tabel_entry = pgdir_walk(pgdir,(void *)_vaddr, 1);
-		if(_tabel_entry == NULL)		
-			panic("out of mem");
-		*_tabel_entry =  _paddr|perm|PTE_P;
-	}
-	return;
-	
-}
 
 //
 // Initialize the kernel virtual memory layout for environment e.
@@ -215,7 +195,9 @@ env_setup_vm(struct Env *e)
 	// LAB 3: Your code here.
 	p->pp_ref = p->pp_ref + 1;
 	e->env_pgdir = (pde_t *)page2kva(p);
-	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
+	i = PDX(UTOP);
+	for(i;i < NPDENTRIES; i++)
+		*(e->env_pgdir + i) = *(kern_pgdir + i);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
