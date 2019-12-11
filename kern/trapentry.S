@@ -47,34 +47,28 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
-TRAPHANDLER_NOEC(trap_divide,T_DIVIDE)
-TRAPHANDLER_NOEC(trap_debug,T_DEBUG)
-TRAPHANDLER_NOEC(trap_nmi,T_NMI)
-TRAPHANDLER_NOEC(trap_brkpt,T_BRKPT)
-TRAPHANDLER_NOEC(trap_oflow,T_OFLOW)
-TRAPHANDLER_NOEC(trap_bound,T_BOUND)
-TRAPHANDLER_NOEC(trap_illop,T_ILLOP)
-TRAPHANDLER_NOEC(trap_device,T_DEVICE)
-TRAPHANDLER(trap_dblflt,T_DBLFLT)
-TRAPHANDLER(trap_tss,T_TSS)
-TRAPHANDLER(trap_segnp,T_SEGNP)
-TRAPHANDLER(trap_stack,T_STACK)
-TRAPHANDLER(trap_gpflt,T_GPFLT)
-TRAPHANDLER(trap_pgflt,T_PGFLT)
-TRAPHANDLER_NOEC(trap_fperr,T_FPERR)
-TRAPHANDLER_NOEC(trap_align,T_ALIGN)
-TRAPHANDLER_NOEC(trap_mchk,T_MCHK)
-TRAPHANDLER_NOEC(trap_simderr,T_SIMDERR)
-TRAPHANDLER_NOEC(sys_call,T_SYSCALL)
+TRAPHANDLER_NOEC(handler0, T_DIVIDE)
+TRAPHANDLER_NOEC(handler1, T_DEBUG)
+TRAPHANDLER_NOEC(handler2, T_NMI)
+TRAPHANDLER_NOEC(handler3, T_BRKPT)
+TRAPHANDLER_NOEC(handler4, T_OFLOW)
+TRAPHANDLER_NOEC(handler5, T_BOUND)
+TRAPHANDLER_NOEC(handler6, T_ILLOP)
+TRAPHANDLER(handler7, T_DEVICE)
+TRAPHANDLER_NOEC(handler8, T_DBLFLT)
+TRAPHANDLER(handler10, T_TSS)
+TRAPHANDLER(handler11, T_SEGNP)
+TRAPHANDLER(handler12, T_STACK)
+TRAPHANDLER(handler13, T_GPFLT)
+TRAPHANDLER(handler14, T_PGFLT)
+TRAPHANDLER_NOEC(handler16, T_FPERR)
+TRAPHANDLER_NOEC(handler48, T_SYSCALL)
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
-
-
 _alltraps:
-	# push data looks like struct Trapframe
 	pushl %ds
 	pushl %es
 	pushal
@@ -82,4 +76,6 @@ _alltraps:
 	movw %ax, %ds
 	movw %ax, %es
 	pushl %esp
-	call trap
+	call trap /*never return*/
+
+1:jmp 1b
