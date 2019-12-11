@@ -27,6 +27,7 @@ void trap_fperr();
 void trap_align();
 void trap_mchk();
 void trap_simderr();
+void sys_call();
 
 static struct Taskstate ts;
 
@@ -83,7 +84,7 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 	// LAB 3: Your code here.
 	SETGATE(idt[0],1,GD_KT,&trap_divide,0);
-	SETGATE(idt[1],1,GD_KT,&trap_debug,0);
+	SETGATE(idt[1],1,GD_KT,&trap_debug,3);
 	SETGATE(idt[2],1,GD_KT,&trap_nmi,0);
 	SETGATE(idt[3],1,GD_KT,&trap_brkpt  ,3);
 	SETGATE(idt[4],1,GD_KT,&trap_oflow  ,0);
@@ -100,6 +101,8 @@ trap_init(void)
 	SETGATE(idt[17],1,GD_KT,&trap_align,0);
 	SETGATE(idt[18],1,GD_KT,&trap_mchk,0);
 	SETGATE(idt[19],1,GD_KT,&trap_simderr,0);
+	SETGATE(idt[48],0,GD_KT,&sys_call,3);
+
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -172,12 +175,34 @@ print_regs(struct PushRegs *regs)
 	cprintf("  ecx  0x%08x\n", regs->reg_ecx);
 	cprintf("  eax  0x%08x\n", regs->reg_eax);
 }
+void debug_handler(struct Trapframe *tf)
+{
+	cprintf("in debug\n");
+	monitor(tf);
+}
 
 static void
 trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	switch(tf->tf_trapno)
+	{
+		case T_PGFLT:
+		page_fault_handler(tf);
+		return;
+		case T_BRKPT:
+		monitor(tf);
+		return;
+		case T_DEBUG:
+		debug_handler(tf);
+		return;
+		case T_SYSCALL:
+		tf->tf_regs.reg_eax =syscall(tf->tf_regs.reg_eax,tf->tf_regs.reg_edx,tf->tf_regs.reg_ecx,tf->tf_regs.reg_ebx,tf->tf_regs.reg_edi ,tf->tf_regs.reg_esi );	
+		return;
+		default:
+		break;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

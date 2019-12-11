@@ -65,6 +65,8 @@ TRAPHANDLER_NOEC(trap_fperr,T_FPERR)
 TRAPHANDLER_NOEC(trap_align,T_ALIGN)
 TRAPHANDLER_NOEC(trap_mchk,T_MCHK)
 TRAPHANDLER_NOEC(trap_simderr,T_SIMDERR)
+TRAPHANDLER_NOEC(sys_call,T_SYSCALL)
+
 
 /*
  * Lab 3: Your code here for _alltraps
@@ -73,10 +75,8 @@ TRAPHANDLER_NOEC(trap_simderr,T_SIMDERR)
 
 _alltraps:
 	# push data looks like struct Trapframe
-	movw %ds, %ax
-	pushl %eax
-	movw %es, %ax
-	pushl %eax
+	pushl %ds
+	pushl %es
 	pushal
 	movw $GD_KD, %ax
 	movw %ax, %ds

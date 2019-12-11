@@ -4,3 +4,6 @@
     A: Yes,the handler of "int 14" is a "ring 0"code,so the user mode with "ring 3" would be prohibited to call "int 14" code.
         Page fault interrupt will manage the page related operation, such as page not in memory, it's a core funtion of kernel, could not be open to anyone.
         
+3.  Q:The break point test case will either generate a break point exception or a general protection fault depending on how you initialized the break point entry in the IDT (i.e., your call to SETGATE from trap_init). Why? How do you need to set it up in order to get the breakpoint exception to work as specified above and what incorrect setup would cause it to trigger a general protection fault
+    A:set the breakpoint interrupt as ring 3 allowed.otherwise,"int 3" from user mode will trigger a  general protection fault.
+    

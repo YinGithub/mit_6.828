@@ -25,11 +25,41 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{"backtrace","Display information about the stack",mon_backtrace}
+	{"backtrace","Display information about the stack",mon_backtrace},
+	{"continue","continue the programe",mon_continue},
+	{"si","step in ",mon_stepi}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int mon_continue(int argc, char **argv, struct Trapframe *tf)
+{
+	// Continue exectuion of current env. 
+	// Because we need to exit the monitor, retrun -1 when we can do so
+	// Corner Case: If no trapframe(env context) is given, do nothing
+	if(tf == NULL)
+	{
+		cprintf("No Env is Running! This is Not a Debug Monitor!\n");
+		return 0;
+	}
+	// Because we want the program to continue running; clear the TF bit
+	tf->tf_eflags &= ~(FL_TF);
+	return -1;
+}
 
+int mon_stepi(int argc, char **argv, struct Trapframe *tf)
+{
+	// Continue exectuion of current env. 
+	// Because we need to exit the monitor, retrun -1 when we can do so
+	// Corner Case: If no trapframe(env context) is given, do nothing
+	if(tf == NULL)
+	{
+		cprintf("No Env is Running! This is Not a Debug Monitor!\n");
+		return 0;
+	}
+	// Because we want the program to single step, set the TF bit
+	tf->tf_eflags |= (FL_TF);
+	return -1;
+}
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
 {
