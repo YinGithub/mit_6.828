@@ -11,6 +11,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,41 +26,23 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{"backtrace","Display information about the stack",mon_backtrace},
-	{"continue","continue the programe",mon_continue},
-	{"si","step in ",mon_stepi}
+	{ "backtrace", "Display backtrace information", mon_backtrace },
+	{ "showmappings", "Display mapping information", mon_showmappings },
+	{ "setperm", "Set mapping page perm", mon_setperm },
+	{ "showvm", "Display value in virtual memory", mon_showvm },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
-int mon_continue(int argc, char **argv, struct Trapframe *tf)
+
+
+void
+pte_print(pte_t *pte)
 {
-	// Continue exectuion of current env. 
-	// Because we need to exit the monitor, retrun -1 when we can do so
-	// Corner Case: If no trapframe(env context) is given, do nothing
-	if(tf == NULL)
-	{
-		cprintf("No Env is Running! This is Not a Debug Monitor!\n");
-		return 0;
-	}
-	// Because we want the program to continue running; clear the TF bit
-	tf->tf_eflags &= ~(FL_TF);
-	return -1;
+	char perm_w = (*pte & PTE_W) ? 'W' : '-';
+	char perm_u = (*pte & PTE_U) ? 'U' : '-';
+	cprintf("perm: P%c%c\n", perm_w, perm_u);
 }
 
-int mon_stepi(int argc, char **argv, struct Trapframe *tf)
-{
-	// Continue exectuion of current env. 
-	// Because we need to exit the monitor, retrun -1 when we can do so
-	// Corner Case: If no trapframe(env context) is given, do nothing
-	if(tf == NULL)
-	{
-		cprintf("No Env is Running! This is Not a Debug Monitor!\n");
-		return 0;
-	}
-	// Because we want the program to single step, set the TF bit
-	tf->tf_eflags |= (FL_TF);
-	return -1;
-}
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
 {
@@ -90,31 +73,119 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	unsigned int * ebp = NULL;
-	unsigned int eip;
-	unsigned int args[5];
 	int i;
-	struct Eipdebuginfo info;
-	cprintf("Stack backtrace:\n");
-	ebp  = (unsigned int * )(read_ebp());
-	do
-	{			
-		eip = *(ebp + 1);
-		for(i = 0;i<5;i++)
-		{
-			args[i] =  *(ebp +2+i) ;
-		}
-		cprintf("ebp %x eip %08x args %08x %08x %08x %08x %08x\n",(unsigned int)ebp,eip,args[0],args[1],args[2],args[3],args[4]);
-		debuginfo_eip((uintptr_t)eip, (struct Eipdebuginfo *)(&info));
-		cprintf("    %s:%d: %.*s+%d\n",info.eip_file,info.eip_line,info.eip_fn_namelen,info.eip_fn_name,eip-info.eip_fn_addr);
-		ebp = (unsigned int * )(*ebp);
-	}
-	while(ebp != NULL);
-	return 0;
+	uint32_t eip;
+	uint32_t* ebp = (uint32_t *)read_ebp();
 
+	while (ebp) {
+		eip = *(ebp + 1);
+		cprintf("ebp %x eip %x args", ebp, eip);
+		uint32_t *args = ebp + 2;
+		for (i = 0; i < 5; i++) {
+			cprintf(" %08x ", args[i]);
+		}
+		cprintf("\n");
+
+		struct Eipdebuginfo debug_info;
+		debuginfo_eip(eip, &debug_info);
+		cprintf("\t%s:%d: %.*s+%d\n",
+			debug_info.eip_file, debug_info.eip_line, debug_info.eip_fn_namelen,
+			debug_info.eip_fn_name, eip - debug_info.eip_fn_addr);
+
+		ebp = (uint32_t *) *ebp;
+	}
+	return 0;
 }
 
+int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc < 3) {
+		cprintf("Usage: showmappings begin_addr end_addr\n");
+		return 0;
+	}
 
+	uint32_t begin = strtol(argv[1], NULL, 16);
+	uint32_t end = strtol(argv[2], NULL, 16);
+	if (begin > end) {
+		cprintf("params error: begin > end\n");
+		return 0;
+	}
+	cprintf("begin: %x, end: %x\n", begin, end);
+
+	for (; begin <= end; begin += PGSIZE) {
+		pte_t *pte = pgdir_walk(kern_pgdir, (void *) begin, 0);
+		if (!pte || !(*pte & PTE_P)) {
+			cprintf("va: %08x not mapped\n", begin);
+		} else {
+			cprintf("va: %08x, pa: %08x, ", begin, PTE_ADDR(*pte));
+			pte_print(pte);
+		}
+	}
+	return 0;
+}
+
+int
+mon_setperm(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc < 4) {
+		cprintf("Usage: setperm addr [0|1] [P|W|U]\n");
+		return 0;
+	}
+	uint32_t addr = strtol(argv[1], NULL, 16);
+	pte_t *pte = pgdir_walk(kern_pgdir, (void *)addr, 0);
+	if (!pte || !(*pte & PTE_P)) {
+		cprintf("va: %08x not mapped\n", addr);
+	} else {
+		cprintf("%x before set, ", addr);
+		pte_print(pte);
+
+		uint32_t perm = 0;
+		char action = argv[2][0];
+		char perm_param = argv[3][0];
+		switch(perm_param) {
+			case 'P':
+				perm = PTE_P;
+				break;
+			case 'W':
+				perm = PTE_W;
+				break;
+			case 'U':
+				perm = PTE_U;
+				break;
+		}
+
+		cprintf("perm_param:%c, action:%c, perm:%d\n", perm_param, action, perm);
+		if (action == '0') {
+			*pte = *pte & ~perm;
+		} else {
+			cprintf("set perm %d\n", perm);
+			*pte = *pte | perm;
+		}
+
+		cprintf("%x after set, ", addr);
+		pte_print(pte);
+	}
+
+	return 0;
+}
+
+int
+mon_showvm(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc < 3) {
+		cprintf("Usage: showvm addr n\n");
+		return 0;
+	}
+
+	void** addr = (void**) strtol(argv[1], NULL, 16);
+	uint32_t n = strtol(argv[2], NULL, 10);
+	int i;
+	for (i = 0; i < n; i++) {
+		cprintf("vm at %x is %x\n", addr+i, addr[i]);
+	}
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
